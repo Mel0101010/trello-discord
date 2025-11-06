@@ -6,6 +6,8 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 from trello_client import TrelloClient
+from checker import TaskChecker
+from scheduler import ReminderScheduler
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -24,6 +26,10 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # Initialiser le client Trello
 trello = TrelloClient(TRELLO_API_KEY, TRELLO_TOKEN, TRELLO_BOARD_ID)
 
+# Initialiser le checker et le scheduler
+checker = TaskChecker(trello)
+scheduler = ReminderScheduler(bot, checker)
+
 
 @bot.event
 async def on_ready():
@@ -37,6 +43,9 @@ async def on_ready():
         print(f"📌 Tableau: {board['name']}")
     except Exception as e:
         print(f"❌ Erreur de connexion à Trello: {e}")
+    
+    # Démarrer le scheduler pour les rappels automatiques
+    scheduler.start()
 
 
 @bot.command(name="tableau", help="Affiche le tableau Trello complet")
@@ -260,7 +269,36 @@ async def help_command(ctx):
         inline=False
     )
     
+    embed.add_field(
+        name="!verifier",
+        value="Vérifie manuellement les colonnes vides",
+        inline=False
+    )
+    
     await ctx.send(embed=embed)
+
+
+@bot.command(name="verifier", help="Vérifie quelles colonnes sont vides")
+async def check_empty(ctx):
+    """Vérifie manuellement les colonnes vides et affiche un rapport"""
+    try:
+        await ctx.send("🔍 Vérification des colonnes en cours...")
+        
+        users_to_remind = checker.check_empty_lists()
+        
+        if not users_to_remind:
+            await ctx.send("✅ **Tout est à jour !** Toutes les colonnes ont des tâches.")
+        else:
+            # Message avec vraies mentions (pas embed)
+            message = "⚠️ **Colonnes vides détectées** ⚠️\n\n"
+            
+            for user_id, list_name in users_to_remind.items():
+                message += f"<@{user_id}> Ta colonne **{list_name}** est vide ! 📝\n"
+            
+            await ctx.send(message)
+        
+    except Exception as e:
+        await ctx.send(f"❌ Erreur: {str(e)}")
 
 
 # Lancer le bot
@@ -270,4 +308,11 @@ if __name__ == "__main__":
         print("Assurez-vous d'avoir créé un fichier .env avec toutes les variables requises.")
         exit(1)
     
-    bot.run(DISCORD_TOKEN)
+    try:
+        bot.run(DISCORD_TOKEN)
+    except KeyboardInterrupt:
+        print("\n⏹️ Arrêt du bot...")
+        scheduler.stop()
+    except Exception as e:
+        print(f"❌ Erreur critique: {e}")
+        scheduler.stop()
