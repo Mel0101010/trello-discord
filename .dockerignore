@@ -1,0 +1,18 @@
+# Fichier pour ignorer certains fichiers lors du build Docker
+.env
+.env.*
+.git
+.gitignore
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.log
+logs/
+README.md
+.vscode/
+.idea/
+*.swp
+*.swo

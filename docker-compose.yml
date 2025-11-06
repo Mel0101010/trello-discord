@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  trello-bot:
+    build: .
+    container_name: trello-discord-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TZ=Europe/Paris
+    volumes:
+      # Optionnel : pour persister les logs
+      - ./logs:/app/logs
+    # Pas besoin de ports car c'est un bot Discord (pas de serveur web)
